@@ -26,6 +26,7 @@
 
 ###[/DEF]###
 
+
 ###[HELP]###
 
 Dieser LBS liest Werte einer Viessmann-Heizung über den vcontrold-Dienst und den vclient aus. Der Sourcecode stammt aus dem openv-Wiki und wurde für CentOS6.5 kompiliert. Es muss sichergestellt sein, dass der vcontrol-Dienst gestartet ist.
@@ -44,21 +45,24 @@ v0.1: Initial version
 
 ###[/HELP]###
 
+
 ###[LBS]###
 <?
 function LB_LBSID($id) {
-	if ($E = getLogicEingangDataAll($id)) {
+	if ($E=logic_getInputs($id)) {
 		setLogicElementVar($id, 103, $E[6]['value']); //set loglevel to #VAR 103
-		if ($E[1]['refresh'] == 1) callLogicFunctionExec(LBSID, $id);
+		if ($E[1]['refresh'] == 1) callLogicFunctionExec(LBSID, $id);	
 	}
 }
 ?>
 ###[/LBS]###
 
+
 ###[EXEC]###
 <?
 require(dirname(__FILE__)."/../../../../main/include/php/incl_lbsexec.php");
-set_time_limit(60); //Script soll maximal 60 Sekunden laufen
+
+set_time_limit(60);	//Script soll maximal 60 Sekunden laufen
 
 function logging($id,$msg, $var=NULL, $priority=8)
 {
@@ -84,13 +88,16 @@ function logging($id,$msg, $var=NULL, $priority=8)
 	}
 }
 
+
+sql_connect();
+
 if ($E=logic_getInputs($id)) {
 		
 	logging($id,"LBS started");
 	
 	$ip = $E[2]['value']; // IP where apcupsd is running
 	$port = $E[3]['value']; // Port of apcupsd (default: 3551)
-	$cmd = split("|", ($E[4]['value']));
+	$cmd = explode("|", $E[4]['value']);
 	
 	$n = count($cmd);
 		
@@ -101,15 +108,24 @@ if ($E=logic_getInputs($id)) {
 	foreach ($cmd as $c)
 	{
 		$command = '/usr/local/bin/vclient -h '.$ip.':'.$port.' -c '.$c.' 2>&1';
+		$output = array();
 		exec($command, $output, $returnCode);
 				
 		if ($returnCode != 0)
 		{
 			logging($id, "FEHLER - Rückgabewert $returnCode",2);
-			logging($id, $output, 7);
+			logging($id, '$output',$output, 2);
 		}
 		else {
-			logic_setOutput($id,$i,$output[1]);
+            
+			$out = explode(" ",$output[1]);
+			if ($out[0] != '128.500000'){
+				logging($id, '$output', $output);
+				logic_setOutput($id,$i,$out[0]);
+			} 
+			else {
+				logging($id, '$output', $output,5);
+			}
 		}
 		$i++;		
 		if ($i>10) break;
@@ -119,6 +135,6 @@ if ($E=logic_getInputs($id)) {
 }
 
 
+sql_disconnect();
 ?>
-
 ###[/EXEC]###
