@@ -47,7 +47,7 @@ v0.3: Ein- und Ausgang für JSON-Strings hinzugefügt
 ###[/HELP]###
 
 ###[LBS]###
-<?
+
 function LB_LBSID($id) {
 	if ($E = logic_getInputs($id)) {
 		setLogicElementVar($id, 103, $E[6]['value']);
@@ -60,7 +60,7 @@ function LB_LBSID($id) {
 ###[/LBS]###
 
 ###[EXEC]###
-<?
+
 require (dirname(__FILE__) . "/../../../../main/include/php/incl_lbsexec.php");
 
 set_time_limit(60);
