@@ -1,12 +1,12 @@
 ###[DEF]###
 [name = VClient v0.3 ]
 
-[e#1 = Trigger ]
-[e#2 = IP #init=localhost]
-[e#3 = Port #init=3002]
-[e#4 = Command ]
-[e#5 = JSON-Commands ]
-[e#6 = Log level #init=8 ]
+[e#1 trigger = Trigger ]
+[e#2 important = IP (vcontrold) #init=localhost]
+[e#3 important = Port #init=3002]
+[e#4 option = Command ]
+[e#5 option = JSON-Commands ]
+[e#6 = Log level #init=5 ]
 
 [a#1 = Output 1 ]
 [a#2 = Output 2 ]
@@ -47,7 +47,7 @@ v0.3: Ein- und Ausgang für JSON-Strings hinzugefügt
 ###[/HELP]###
 
 ###[LBS]###
-
+<?php
 function LB_LBSID($id) {
 	if ($E = logic_getInputs($id)) {
 		setLogicElementVar($id, 103, $E[6]['value']);
@@ -60,7 +60,7 @@ function LB_LBSID($id) {
 ###[/LBS]###
 
 ###[EXEC]###
-
+<?php
 require (dirname(__FILE__) . "/../../../../main/include/php/incl_lbsexec.php");
 
 set_time_limit(60);
@@ -151,28 +151,31 @@ if ($E = logic_getInputs($id)) {
 
 			foreach ($commands as $key => $cmd) {
 				if (is_string($cmd)) {
-					$command = '/usr/local/bin/vclient -h ' . $ip . ':' . $port . ' -c ' . $c . ' 2>&1';
-					$output = array();
-					exec($command, $output, $returnCode);
+					if (!empty($cmd)) {
+						$command = '/usr/local/bin/vclient -h ' . $ip . ':' . $port . ' -c ' . $cmd . ' 2>&1';
+						$output = array();
+						exec($command, $output, $returnCode);
 
-					if ($returnCode != 0) {
-						logging($id, "FEHLER vclient - Rückgabewert $returnCode", 2);
-						logging($id, "key:$key", $output, 2);
-						$json_out[$key] = "";
-					} else {
-
-						$out = explode(" ", $output[1]);
-						if ($out[0] != '128.500000') {
-							logging($id, "key:$key", $output);
-							$json_out[$key] = $out[0];
-						} else {
+						if ($returnCode != 0) {
+							logging($id, "FEHLER vclient - Rückgabewert $returnCode", 2);
+							logging($id, "key:$key", $output, 2);
 							$json_out[$key] = "";
-							logging($id, '$output', $output, 5);
+						} else {
+
+							$out = explode(" ", $output[1]);
+							if ($out[0] != '128.500000') {
+								logging($id, "key:$key", $output);
+								$json_out[$key] = $out[0];
+							} else {
+								$json_out[$key] = "";
+								logging($id, '$output', $output, 5);
+							}
 						}
+					} else {
+						logging($id, "empty string given", 7);
 					}
 				} else {
-					logging($id, "Array-Item is no valid string", 5);
-					logging($id, "Array-Item given:", 5);
+					logging($id, "Array-Item is no valid string. Array-Item given:", 5);
 					logging($id, "$key => $cmd", 5);
 				}
 
