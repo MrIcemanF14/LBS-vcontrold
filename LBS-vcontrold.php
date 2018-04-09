@@ -229,4 +229,5 @@ if ($E = logic_getInputs($id)) {
 
 sql_disconnect();
 ?>
+
 ###[/EXEC]###
