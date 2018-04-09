@@ -1,5 +1,5 @@
 ###[DEF]###
-[name = VClient v0.3 ]
+[name = VClient v0.4 ]
 
 [e#1 trigger = Trigger ]
 [e#2 important = IP (vcontrold) #init=localhost]
@@ -19,10 +19,11 @@
 [a#9 = Output 9 ]
 [a#10 = Output 10 ]
 [a#11 = JSON-Output]
+[a#12 = Trigger]
 
-[v#100 = 0.3 ]
+[v#100 = 0.4 ]
 [v#101 = 19000930 ]
-[v#102 = VClient v0.3 ]
+[v#102 = VClient v0.4 ]
 [v#103 = 0 ]
 
 ###[/DEF]###
@@ -43,6 +44,7 @@ Changelog:
 v0.1: Initial version
 v0.2: für CentOS kompilierte vcontrold und vclient in Archiv beigefügt
 v0.3: Ein- und Ausgang für JSON-Strings hinzugefügt
+v0.4: Pausen und Wiederholungen eingefügt, da es bei Verwendung des Protokoll P300 zu Lesefehlern kommt, wenn Anfragen zu schnell hintereinander ausgeführt werden
 
 ###[/HELP]###
 
@@ -116,31 +118,47 @@ if ($E = logic_getInputs($id)) {
 
 		if ($n > 10)
 			logging($id, "Too many command elements specfied on input E4. Please limit to 10.");
-
 		$i = 1;
 
 		foreach ($cmd as $c) {
 			$command = '/usr/local/bin/vclient -h ' . $ip . ':' . $port . ' -c ' . $c . ' 2>&1';
-			$output = array();
-			exec($command, $output, $returnCode);
+			$retrys = 3;
+			do {
+				$output = array();
+				exec($command, $output, $returnCode);
+				if (strpos($output[0], ' addr was still active') !== false) {
+					$retrys--;
+					// Warte 0,2 Sekunden
+					usleep(200000);
+				} else
+					break;
+			} while($retrys > 0);
 
-			if ($returnCode != 0) {
+			logging($id, "Command: $command");
+			logging($id, "Return code: $returnCode");
+
+			if ($returnCode !== 0) {
 				logging($id, "FEHLER - Rückgabewert $returnCode", 2);
-				logging($id, '$output', $output, 2);
+				logging($id, 'dump of $output:', $output, 2);
+			} else if ($retrys == 0) {
+				logging($id, "FEHLER - Adresse konnte nicht gelesen werden", 2);
+				logging($id, 'dump of $output:', $output, 2);
 			} else {
 
 				$out = explode(" ", $output[1]);
 				if ($out[0] != '128.500000') {
-					logging($id, '$output', $output);
+					logging($id, 'dump of $output:', $output);
 					logic_setOutput($id, $i, $out[0]);
 				} else {
 					logging($id, '$output', $output, 5);
 				}
 			}
+
 			$i++;
 			if ($i > 10)
 				break;
 		}
+
 	}
 	if (!empty($E[5]['value'])) {
 
@@ -154,11 +172,28 @@ if ($E = logic_getInputs($id)) {
 					if (!empty($cmd)) {
 						$command = '/usr/local/bin/vclient -h ' . $ip . ':' . $port . ' -c ' . $cmd . ' 2>&1';
 						$output = array();
-						exec($command, $output, $returnCode);
+
+						$retrys = 3;
+						do {
+							exec($command, $output, $returnCode);
+							if (strpos($output[0], ' addr was still active') !== false) {
+								$retrys--;
+								// Warte 0,2 Sekunden
+								usleep(200000);
+							} else
+								break;
+						} while($retrys > 0);
+
+						logging($id, "Command: $command");
+						logging($id, "Return code: $returnCode");
 
 						if ($returnCode != 0) {
 							logging($id, "FEHLER vclient - Rückgabewert $returnCode", 2);
-							logging($id, "key:$key", $output, 2);
+							logging($id, "dump of key:$key", $output, 2);
+							$json_out[$key] = "";
+						} else if ($retrys == 0) {
+							logging($id, "FEHLER vclient - Rückgabewert $returnCode", 2);
+							logging($id, "dump of key:$key", $output, 2);
 							$json_out[$key] = "";
 						} else {
 
@@ -181,7 +216,7 @@ if ($E = logic_getInputs($id)) {
 
 			}
 			logic_setOutput($id, 11, json_encode($json_out));
-
+			logic_setOutput($id, 12, 1);
 		} else {
 			logging($id, "FEHLER - Ungültiger JSON-String", 2);
 			logging($id, json_last_error_msg(), 2);
